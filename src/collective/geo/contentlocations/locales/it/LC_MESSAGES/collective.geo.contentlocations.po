@@ -75,6 +75,14 @@ msgstr "Poligono"
 msgid "Remove georeference"
 msgstr "Rimuovi coordinate"
 
+#: ../browser/geoshapeform.py:29
+msgid "GPS Track"
+msgstr "Traccia GPS"
+
+#: ../browser/geoshapeform.py:30
+msgid "Import data from GPS file"
+msgstr "Importa dati da traccia GPS"
+
 #: ../browser/geoshapeform.py:74
 msgid "Save"
 msgstr "Salva"

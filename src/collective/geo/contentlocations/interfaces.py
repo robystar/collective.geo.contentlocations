@@ -18,6 +18,13 @@ class IGeoManager(Interface):
         description=_(u"Insert below the shape coordinates in WKT format."),
         required=False
     )
+    
+
+    filecsv = schema.Bytes(
+        title=_(u"File"),
+        description=_(u"A GPS track (boh ci aggingiamo qualcosaltro) file holding a coordinate per row and enough "
+                      u"coordinate pairs for selected type."),
+        required=False)
 
     def isGeoreferenceable(self):
         """Check if an object is isGeoreferenceable

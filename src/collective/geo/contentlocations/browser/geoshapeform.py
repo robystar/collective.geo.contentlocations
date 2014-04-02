@@ -1,3 +1,6 @@
+import csv
+import cStringIO
+
 from zope.interface import implements
 
 from z3c.form import form, field, button
@@ -6,7 +9,7 @@ from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.CMFPlone.utils import getToolByName
 
 from plone.z3cform.layout import wrap_form
-from plone.z3cform.fieldsets import extensible
+from plone.z3cform.fieldsets import extensible, group
 
 from collective.geo.mapwidget.interfaces import IMapView
 from collective.geo.mapwidget.browser.widget import MapWidget
@@ -21,6 +24,12 @@ from .geostylesform import GeoStylesForm
 from ..interfaces import IGeoManager
 
 
+class CsvGroup(group.Group):
+    fields = field.Fields(IGeoManager).select('filecsv')
+    label = _(u"GPS Track")
+    description = _(u"Import data from GPS file")
+
+
 class GeoShapeForm(extensible.ExtensibleForm, form.Form):
     implements(IMapView)
 
@@ -31,7 +40,7 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
     fields['wkt'].widgetFactory = MapFieldWidget
     mapfields = ['geoshapemap']
 
-    groups = (GeoStylesForm,)
+    groups = (GeoStylesForm, CsvGroup,)
 
     message_ok = _(u'Changes saved.')
     message_cancel = _(u'No changes made.')
@@ -42,6 +51,10 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
 
     message_error_wkt = _(u'WKT expression not correct. Verify input.')
     message_error_input = _(u'No valid input given.')
+    message_error_csv = _(u'CSV File not correct. Verify file format.')
+
+    myheaders = ('date','time','latitude_raw','longitude_raw','depth',);
+
 
     def __init__(self, context, request):
         super(GeoShapeForm, self).__init__(context, request)
@@ -54,6 +67,9 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
         self.typesUseViewActionInListings = list(
             site_props.getProperty('typesUseViewActionInListings')
         )
+
+    def set(self, key, val):
+        return self.context.__setitem__(key, val)
 
     @property
     def next_url(self):
@@ -77,6 +93,14 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
         if (errors):
             return
 
+
+
+        csv_group = [gr for gr in self.groups if gr.__class__.__name__ == 'CsvGroup']
+        filecsv = csv_group[0].widgets['filecsv'].value
+
+
+
+
         # set content geo style
         geostylesgroup = [
             gr for gr in self.groups
@@ -87,9 +111,22 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
             fields = geostylesgroup[0].fields
             stylemanager.setStyles([(i, data[i]) for i in fields])
 
+        
+
+
+
+
+
+
+
+        #with open("/tmp/pippo.csv","w") as myfile:
+            #myfile.write(data['filecsv'])
+
+        
+
         # we remove coordinates if wkt is 'empty'
         message = self.message_ok
-        if not data['wkt']:
+        if False:
             geo = IGeoManager(self.context)
             coord = geo.getCoordinates()
             if coord == (None, None):
@@ -99,7 +136,7 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
                 self.geomanager.removeCoordinates()
 
         else:
-            ok, message = self.addCoordinates(data)
+            ok, message = self.addCoordinates(filecsv)
             if not ok:
                 self.status = message
                 return
@@ -119,33 +156,82 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
         self.setStatusMessage(self.message_georeference_removed)
         self.redirectAction()
 
-    def addCoordinates(self, data):
-        """ from collective.geo.geographer.README.txt
-            Now set the location geometry to type "Point"
-            and coordinates 105.08 degrees West,
-            40.59 degrees North using setGeoInterface()
+    def addCoordinates(self, filecsv):
+        import pdb
+        data = []
+        coord = []
+        if filecsv:
+            filecsv.seek(0)
+            content = filecsv.read()
+            reader = csv.DictReader(cStringIO.StringIO(str(content)), delimiter=';')
+           
+            for row in reader:
+                coord = []
+                coord.append(self.parseCoord(row['longitude_raw'][1:9]))    
+                coord.append(self.parseCoord(row['latitude_raw'])) 
+                try:
+                    coord.append(float(row['depth'])) 
+                except:
+                    coord.append(0) 
+                coord.append('2013-11-05T' + row['time'].replace(".", ":") + 'Z')
+                data.append(coord)
 
-            >>> geo.setGeoInterface('Point', (-105.08, 40.59))
-        """
+                # for col in self.myheaders
+                #     if()
+                # if not headers:
+                #     headers = row
+                # else:
+                #     #data.append([row[i] for i in range(len(headers)) if headers[i] in self.myheaders])
+                #     data.append(row)
 
-        try:
-            geom = self.verifyWkt(data['wkt']).__geo_interface__
-            self.geomanager.setCoordinates(
-                geom['type'],
-                geom['coordinates']
-            )
+            # # check for row existence ???
+            # # are there any problems if the row is empty ???
+            #     if row:
+            #         # verify pairs of values are there
+            #         #import pdb; pdb.set_trace()
+            #         pdb.set_trace()
+            #         try:
+            #             longitude = row[10]
+            #             latitude = row[11]
+            #         except:
+            #             #return False, self.message_error_csv
+
+     
+            #         # verify that longitude and latitude are non-empty and non-zero
+            #         if longitude != '' and latitude != '':
+            #             try:
+            #                 # check for float convertible values
+            #                 coords.append((longitude, latitude))
+            #             except:
+            #                 #return False, self.message_error_csv
+
+
+            
+            self.geomanager.setCoordinates('Track', data)
+            #import pdb;pdb.set_trace()
+
+
             return True, self.message_ok
-        except:  # ReadingError: is a subclass of generic exception
-            return False, self.message_error_wkt
+        #else:
+            #return False, self.message_error_csv
+
 
     def verifyWkt(self, data):
         try:
             from shapely import wkt
             geom = wkt.loads(data)
+            #geom = {"type":"Point","coordinates":"00000000"}
         except ImportError:
             from pygeoif.geometry import from_wkt
             geom = from_wkt(data)
         return geom
+
+    def parseCoord(self, data):
+        d = float(data[0:2])
+        m = float(data[2:4])/60
+        s = float(data[4:9])/60
+
+        return d+m+s
 
 
 manageCoordinates = wrap_form(
