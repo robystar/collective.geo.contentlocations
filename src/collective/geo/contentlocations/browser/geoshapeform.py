@@ -167,10 +167,10 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
            
             for row in reader:
                 coord = []
-                coord.append(self.parseCoord(row['longitude_raw'][1:9]))    
-                coord.append(self.parseCoord(row['latitude_raw'])) 
+                coord.append(self.parseCoord(row['longitude_raw'][1:9].replace(",", ".")))    
+                coord.append(self.parseCoord(row['latitude_raw'].replace(",", "."))) 
                 try:
-                    coord.append(float(row['depth'])) 
+                    coord.append(float(row['depth'].replace(",", "."))) 
                 except:
                     coord.append(0) 
                 coord.append('2013-11-05T' + row['time'].replace(".", ":") + 'Z')
@@ -227,6 +227,7 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
         return geom
 
     def parseCoord(self, data):
+
         d = float(data[0:2])
         m = float(data[2:4])/60
         s = float(data[4:9])/60
