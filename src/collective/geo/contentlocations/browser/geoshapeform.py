@@ -166,15 +166,16 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
             reader = csv.DictReader(cStringIO.StringIO(str(content)), delimiter=';')
            
             for row in reader:
-                coord = []
-                coord.append(self.parseCoord(row['longitude_raw'][1:9].replace(",", ".")))    
-                coord.append(self.parseCoord(row['latitude_raw'].replace(",", "."))) 
-                try:
-                    coord.append(float(row['depth'].replace(",", "."))) 
-                except:
-                    coord.append(0) 
-                coord.append('2013-11-05T' + row['time'].replace(".", ":") + 'Z')
-                data.append(coord)
+                if row['longitude_raw'] and row['latitude_raw']:
+                    coord = []
+                    coord.append(self.parseCoord(row['longitude_raw'].replace(",", ".")))    
+                    coord.append(self.parseCoord(row['latitude_raw'].replace(",", "."))) 
+                    try:
+                        coord.append(float(row['depth'].replace(",", "."))) 
+                    except:
+                        coord.append(0) 
+                    coord.append('2013-11-05T' + row['time'].replace(".", ":") + 'Z')
+                    data.append(coord)
 
                 # for col in self.myheaders
                 #     if()
@@ -228,9 +229,11 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
 
     def parseCoord(self, data):
 
-        d = float(data[0:2])
-        m = float(data[2:4])/60
-        s = float(data[4:9])/60
+        v = data.split('.')
+        l = len(v[0])        
+        d = float(v[0][0:l-2])
+        m = float(data[l-2:l])/60
+        s = float('0.' + v[1])/60
 
         return d+m+s
 
