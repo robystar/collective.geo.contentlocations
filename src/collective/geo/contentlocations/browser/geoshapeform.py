@@ -230,7 +230,9 @@ class GeoShapeForm(extensible.ExtensibleForm, form.Form):
     def parseCoord(self, data):
 
         v = data.split('.')
-        l = len(v[0])        
+        l = len(v[0])  
+        if l==1:
+            v[1]='0'
         d = float(v[0][0:l-2])
         m = float(data[l-2:l])/60
         s = float('0.' + v[1])/60
